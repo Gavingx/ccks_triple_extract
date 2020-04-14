@@ -43,19 +43,19 @@ def bio_sent(sent, spo_list):
     return sent, bio_list
 
 
-train_data = load_data('train_data.json')
-with open('ccks2019.train', 'w', encoding='utf-8') as f:
+train_data = load_data('train.txt')
+with open('ccks2019_train.txt', 'w', encoding='utf-8') as f:
     for item in train_data:
         # print(item)
         sent, bio_list = bio_sent(item['text'], item['spo_list'])
         for char, tag in zip(sent, bio_list):
             if not char:
                 print(sent)
-            f.write(char+' '+tag+'\n')
+            f.write(char + ' ' + tag + '\n')
         f.write('\n')
 
-test_data = load_data('test_data.json')
-with open('ccks2019.test', 'w', encoding='utf-8') as f:
+test_data = load_data('test.txt')
+with open('ccks2019_test.txt', 'w', encoding='utf-8') as f:
     for item in test_data:
         # print(item)
         sent, bio_list = bio_sent(item['text'], item['spo_list'])
@@ -64,5 +64,12 @@ with open('ccks2019.test', 'w', encoding='utf-8') as f:
                 print(sent)
             f.write(char+' '+tag+'\n')
         f.write('\n')
-
-
+dev_data = load_data('dev.txt')
+with open('ccks2019_dev.txt', 'w', encoding='utf-8') as f:
+    for item in dev_data:
+        sent, bio_list = bio_sent(item['text'], item['spo_list'])
+        for char, tag in zip(sent, bio_list):
+            if not char:
+                print(sent)
+            f.write(char + ' ' + tag + '\n')
+        f.write('\n')

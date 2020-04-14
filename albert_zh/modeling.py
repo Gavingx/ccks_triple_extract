@@ -199,14 +199,14 @@ class BertModel(object):
         # mask of shape [batch_size, seq_length, seq_length] which is used
         # for the attention scores.
         attention_mask = create_attention_mask_from_input_mask(
-            input_ids, input_mask)
+            input_ids, input_mask) # edit by gavin: padding_mask, 一个句子128个字，不够的padding=0，而这些padding=0的地方对attention是没用的，因此在做完attention后，对值为0的地方加上一个很小的数，对值正常的地方加0.这样处理使得值为0的地方softmax后的attention=0
 
         # Run the stacked transformer.
         # `sequence_output` shape = [batch_size, seq_length, hidden_size].
         ln_type=config.ln_type
         print("ln_type:",ln_type)
         if ln_type=='postln' or ln_type is None: # currently, base or large of albert used post-LN structure
-            print("old structure of transformer.use: transformer_model,which use post-LN")
+            print("old structure of transformer.use: transformer_model,which use post-LN") # edit by gavin: 原始的transformer中，Layer Norm是跟在Residual之后，这称为Post-in Transformer；post-in transformer对参数非常敏感，需要很仔细地调参才能取得好的结果，比如warm-up策略，这很耗时。post-in transformer在训练的初始阶段，输出层附近的期望梯度非常大，所以，如果没有warm-up, 模型优化过程会炸裂，非常不稳定（使用warm-up既可以保持分布的平稳，也可以保持深层的稳定）。pre-in transformer，将layer norm放在residual的过程中，效果更好，甚至不需要warm-up
             self.all_encoder_layers = transformer_model(
                 input_tensor=self.embedding_output,
                 attention_mask=attention_mask,
@@ -375,7 +375,7 @@ def dropout(input_tensor, dropout_prob):
     A version of `input_tensor` with dropout applied.
   """
   if dropout_prob is None or dropout_prob == 0.0:
-    return input_tensor
+    return input_tensor # edit by gavin: tf.nn.dropout中没置零的元素要扩大（1/keep_prob）的原因是要保持预期总和不变(假设有个m*n的矩阵，总和为total, 现在以一定的概率置零，则置零后的期望总和为 total * keep_prob, 因此要使总和不变，total * keep_prob/ keep_prob, 扩展到每一个元素上，就是每一个元素要扩大（1/keep_prob)倍
 
   output = tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
   return output
@@ -566,8 +566,8 @@ def embedding_postprocessor(input_tensor,
     output += token_type_embeddings
 
   if use_position_embeddings:
-    assert_op = tf.assert_less_equal(seq_length, max_position_embeddings)
-    with tf.control_dependencies([assert_op]):
+    assert_op = tf.assert_less_equal(seq_length, max_position_embeddings) # edit by gavin: seq_length < max_position_embeddings报错
+    with tf.control_dependencies([assert_op]): # edit by gavin: assert_op操作完才能执行下面的步骤
       full_position_embeddings = tf.get_variable(
           name=position_embedding_name,
           shape=[max_position_embeddings, width],

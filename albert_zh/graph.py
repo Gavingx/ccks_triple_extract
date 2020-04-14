@@ -39,7 +39,7 @@ def optimize_graph(logger=None, verbose=False, pooling_strategy=PoolingStrategy.
     try:
         # we don't need GPU for optimizing the graph
         tf = import_tf(device_id=0, verbose=verbose)
-        from tensorflow.python.tools.optimize_for_inference_lib import optimize_for_inference
+        from tensorflow.python.tools.optimize_for_inference_lib import optimize_for_inference # edit by gavin: optimize_for_inference 优化训练过程，删除给定的一组输入和输出不需要的所有节点，减少计算的次数
 
         # allow_soft_placement:自动选择运行设备
         config = tf.ConfigProto(allow_soft_placement=True)
@@ -48,7 +48,7 @@ def optimize_graph(logger=None, verbose=False, pooling_strategy=PoolingStrategy.
         logger.info('model config: %s' % config_fp)
 
         # 加载bert配置文件
-        with tf.gfile.GFile(config_fp, 'r') as f:
+        with tf.gfile.GFile(config_fp, 'r') as f: # edit by gavin: 类似于with open()
             bert_config = modeling.BertConfig.from_dict(json.load(f))
 
         logger.info('build graph...')
