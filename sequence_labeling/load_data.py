@@ -36,7 +36,7 @@ def read_data(file_path):
     sentences = [_ for _ in sentences if _]
     tags = [_ for _ in tags if _]
 
-    return sentences[:50000], tags[:50000]
+    return sentences, tags
 
 
 # 读取训练集数据

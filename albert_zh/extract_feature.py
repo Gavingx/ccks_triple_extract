@@ -35,9 +35,9 @@ class BertVector:
         init BertVector
         :param batch_size:     Depending on your memory default is 32
         """
-        self.max_seq_length = max_seq_len
-        self.layer_indexes = args.layer_indexes
-        self.gpu_memory_fraction = 1
+        self.max_seq_length = max_seq_len # edit by gavin: 取最大的句子长度为128，小于128的句子打padding，多于128的句子截断。通常该值会取语料的长度的平均值+2，加2的原因是因为需要拼接两个占位符[CLS]（表示序列的开始）与[SEP]（表示序列的结束）
+        self.layer_indexes = args.layer_indexes # edit by gavin: bert每一层transformer的输出值理论上来说都可以作为句向量，hanxiao大神的实验数据，最佳结果是取倒数第二层，最后一层太接近于目标，前面几层可能还没充分学习到语义信息
+        self.gpu_memory_fraction = 1 # edit by gavin: gpu分配可用的最大的显存为100%
 
         if pooling_strategy == "NONE":
             pooling_strategy = args.PoolingStrategy.NONE

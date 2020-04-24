@@ -13,9 +13,9 @@ import contextlib
 
 def import_tf(device_id=-1, verbose=False):
     #os.environ['CUDA_VISIBLE_DEVICES'] = '-1' if device_id < 0 else str(device_id)
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0' if verbose else '3'
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0' if verbose else '3' # edit by gavin: (0： 显示所有logs；1：隐藏 INFO logs；2：额外隐藏WARNING logs； 3：所有 ERROR logs也不显示)
     import tensorflow as tf
-    tf.logging.set_verbosity(tf.logging.DEBUG if verbose else tf.logging.ERROR)
+    tf.logging.set_verbosity(tf.logging.DEBUG if verbose else tf.logging.ERROR) # edit by gavin: 将 TensorFlow 日志信息输出到屏幕(参数是日志等级）
     return tf
 
 
@@ -35,11 +35,11 @@ def set_logger(context, verbose=False):
 
 def optimize_graph(logger=None, verbose=False, pooling_strategy=PoolingStrategy.REDUCE_MEAN, max_seq_len=40):
     if not logger:
-        logger = set_logger(colored('BERT_VEC', 'yellow'), verbose)
+        logger = set_logger(colored('BERT_VEC', 'yellow'), verbose) # edit by gavin: https://www.cnblogs.com/telecomshy/p/10630888.html
     try:
         # we don't need GPU for optimizing the graph
         tf = import_tf(device_id=0, verbose=verbose)
-        from tensorflow.python.tools.optimize_for_inference_lib import optimize_for_inference # edit by gavin: optimize_for_inference 优化训练过程，删除给定的一组输入和输出不需要的所有节点，减少计算的次数
+        from tensorflow.python.tools.optimize_for_inference_lib import optimize_for_inference # edit by gavin: optimize_for_inference 通过调用 optimize_for_inference 脚本，会自动删除模型中输入层和输出层之间所有不需要的节点，同时该脚本还做了一些其他优化以提高运行速度。例如它把显式批处理标准化运算跟卷积权重进行了合并，从而降低了计算量
 
         # allow_soft_placement:自动选择运行设备
         config = tf.ConfigProto(allow_soft_placement=True)
@@ -49,7 +49,7 @@ def optimize_graph(logger=None, verbose=False, pooling_strategy=PoolingStrategy.
 
         # 加载bert配置文件
         with tf.gfile.GFile(config_fp, 'r') as f: # edit by gavin: 类似于with open()
-            bert_config = modeling.BertConfig.from_dict(json.load(f))
+            bert_config = modeling.BertConfig.from_dict(json.load(f)) # bert_config类才能被BertModel调用
 
         logger.info('build graph...')
         # input placeholders, not sure if they are friendly to XLA
@@ -98,30 +98,33 @@ def optimize_graph(logger=None, verbose=False, pooling_strategy=PoolingStrategy.
                 input_mask = tf.cast(input_mask, tf.float32)
 
                 # 以下代码是句向量的生成方法，可以理解为做了一个卷积的操作，但是没有把结果相加, 卷积核是input_mask
-                if pooling_strategy == PoolingStrategy.REDUCE_MEAN:
+                if pooling_strategy == PoolingStrategy.REDUCE_MEAN: # edit by gavin:类似于平均池化，每个字的向量之和/字的个数
                     pooled = masked_reduce_mean(encoder_layer, input_mask)
-                elif pooling_strategy == PoolingStrategy.REDUCE_MAX:
+                elif pooling_strategy == PoolingStrategy.REDUCE_MAX: # edit by gavin: 类似于最大池化，取每个字的每个维度的最大值作为向量
                     pooled = masked_reduce_max(encoder_layer, input_mask)
                 elif pooling_strategy == PoolingStrategy.REDUCE_MEAN_MAX:
                     pooled = tf.concat([masked_reduce_mean(encoder_layer, input_mask),
-                                        masked_reduce_max(encoder_layer, input_mask)], axis=1)
+                                        masked_reduce_max(encoder_layer, input_mask)], axis=1) # edit by gavin: 平均池化和最大池化concat
                 elif pooling_strategy == PoolingStrategy.FIRST_TOKEN or \
                         pooling_strategy == PoolingStrategy.CLS_TOKEN:
-                    pooled = tf.squeeze(encoder_layer[:, 0:1, :], axis=1)
+                    pooled = tf.squeeze(encoder_layer[:, 0:1, :], axis=1) # edit by gavin: 取CLS的向量作为句向量
                 elif pooling_strategy == PoolingStrategy.LAST_TOKEN or \
                         pooling_strategy == PoolingStrategy.SEP_TOKEN:
                     seq_len = tf.cast(tf.reduce_sum(input_mask, axis=1), tf.int32)
                     rng = tf.range(0, tf.shape(seq_len)[0])
                     indexes = tf.stack([rng, seq_len - 1], 1)
-                    pooled = tf.gather_nd(encoder_layer, indexes)
+                    pooled = tf.gather_nd(encoder_layer, indexes) # edit by gavin： 取最后的token作为句向量
                 elif pooling_strategy == PoolingStrategy.NONE:
-                    pooled = mul_mask(encoder_layer, input_mask)
+                    pooled = mul_mask(encoder_layer, input_mask) # edit by gavin：取整个矩阵作为句子的表征
                 else:
                     raise NotImplementedError()
 
             pooled = tf.identity(pooled, 'final_encodes')
 
             output_tensors = [pooled]
+            # edit by gavin: 保存为pb格式主要有两种方式
+            # 第一种方式使用graph_util.convert_variables_to_constants()
+            # 第二种方式使用tf.get_default_graph().as_graph_def()
             tmp_g = tf.get_default_graph().as_graph_def()
 
         with tf.Session(config=config) as sess:

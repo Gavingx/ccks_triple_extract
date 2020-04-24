@@ -76,7 +76,7 @@ def build_model(max_para_length, n_tags):
     # LSTM model
     lstm = Bidirectional(LSTM(units=128, return_sequences=True), name="bi_lstm")(bert_output)
     drop = Dropout(0.1, name="dropout")(lstm)
-    dense = TimeDistributed(Dense(n_tags, activation="softmax"), name="time_distributed")(drop)
+    dense = TimeDistributed(Dense(n_tags, activation="softmax"), name="time_distributed")(drop) # 对每一个layer都共享权重（因为是lstm，所以参数是要共享的）
     crf = CRF(n_tags)
     out = crf(dense)
     model = Model(inputs=bert_output, outputs=out)
